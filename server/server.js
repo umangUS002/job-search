@@ -14,14 +14,14 @@ import { clerkMiddleware } from '@clerk/express';
 // Intialize Express
 const app = express();
 
-app.use(cors());
-app.use(express.json());
-
 // Connect to db
 await connectDB();
 await connectCloudinary();
 
-app.post('/webhooks', clerkWebhooks);
+// Middlewares
+app.use(cors());
+app.use(express.json());
+
 
 
 // Middlewares
@@ -35,7 +35,7 @@ app.get('/', (req,res) => {
 app.get("/debug-sentry", function mainHandler(req, res) {
   throw new Error("My first Sentry error!");
 });
-
+app.post('/webhooks', clerkWebhooks);
 
 // Routes
 app.use('/api/company', router);

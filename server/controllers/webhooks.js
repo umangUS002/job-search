@@ -1,76 +1,68 @@
 import { Webhook } from "svix";
-import mongoose from "mongoose";
 import User from "../models/User.js";
-import connectDB from "../configs/db.js";
 
-const clerkWebhooks = async (req, res) => {
-  try {
-    console.log("👉 Incoming webhook");
+// API Controller Function to Manage Clerk User with Database
+const clerkWebhooks = async(req,res) => {
+    try {
+               
+        // Create a svix instance with clerk webhook secret
+        const whook = new Webhook(process.env.CLERK_WEBHOOK_SECRET);
 
-    await connectDB();
-    console.log("✅ DB Connected");
 
-    const whook = new Webhook(process.env.CLERK_WEBHOOK_SECRET);
+        // Verifying Headers 
+        await whook.verify(JSON.stringify(req.body),{
+            "svix-id": req.headers["svix-id"],
+            "svix-timestamp": req.headers["svix-timestamp"],
+            "svix-signature": req.headers["svix-signature"]
+        })
 
-    const evt = whook.verify(
-      JSON.stringify(req.body),
-      {
-        "svix-id": req.headers["svix-id"],
-        "svix-timestamp": req.headers["svix-timestamp"],
-        "svix-signature": req.headers["svix-signature"]
-      }
-    );
+        // Getting data from request body
+        const { data, type } = req.body
 
-    console.log("✅ Webhook Verified");
+        // Switch case for different events
+        switch (type) {
+            case 'user.created':{
 
-    const { data, type } = evt;
+                const userData = {
+                    _id: data.id,
+                    email: data.email_addresses[0].email_address,
+                    name: data.first_name + " " + data.last_name,
+                    image: data.image_url,
+                    resume: ''
+                }
+                await User.create(userData)
+                res.json({})
+                break;
+            }
 
-    console.log("📦 Event Type:", type);
-    console.log("📦 Event Data:", data);
+            case 'user.updated':{
 
-    switch (type) {
-      case 'user.created': {
-        const userData = {
-          _id: data.id,
-          email: data.email_addresses[0]?.email_address || '',
-          name: `${data.first_name || ''} ${data.last_name || ''}`.trim(),
-          image: data.image_url || '',
-          resume: ''
-        };
-        await User.create(userData);
-        console.log("✅ User Created in DB:", userData);
-        res.json({ success: true });
-        break;
-      }
+                const userData = {
+                    email: data.email_addresses[0].email_address,
+                    name: data.first_name + " " + data.last_name,
+                    image: data.image_url,
+                }
+                await User.findByIdAndUpdate(data.id, userData)
+                res.json({})
+                break;
+            }
 
-      case 'user.updated': {
-        const userData = {
-          email: data.email_addresses[0]?.email_address || '',
-          name: `${data.first_name || ''} ${data.last_name || ''}`.trim(),
-          image: data.image_url || '',
-        };
-        await User.findByIdAndUpdate(data.id, userData);
-        console.log("✅ User Updated:", data.id);
-        res.json({ success: true });
-        break;
-      }
+            case 'user.deleted':{
+                await User.findByIdAndDelete(data.id);
+                res.json({})
+                break;
+            }
+            
+            default:
+            break;
+                
+        }
 
-      case 'user.deleted': {
-        await User.findByIdAndDelete(data.id);
-        console.log("✅ User Deleted:", data.id);
-        res.json({ success: true });
-        break;
-      }
-
-      default:
-        console.log("⚠️ Unhandled Webhook Type:", type);
-        res.json({});
+    } catch (error) {
+        console.log(error.message);
+        res.json({sucess: false, message: 'Webhooks Error'})
+        
     }
+}
 
-  } catch (error) {
-    console.error("❌ Webhook Error:", error.message);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export default clerkWebhooks;
+export default clerkWebhooks
