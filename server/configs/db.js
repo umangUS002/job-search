@@ -1,14 +1,21 @@
-import mongoose from "mongoose";
+// configs/db.js
+import mongoose from 'mongoose';
 
-const connectDB = async() => {
-    try {
-        mongoose.connection.on('connected', () => 
-            console.log("Database Connected")
-        )
-        await mongoose.connect(`${process.env.MONGODB_URI}/Job Portal`)
-    } catch (error) {
-        console.log(error.message);
-    }
-}
+let isConnected = false;
+
+const connectDB = async () => {
+  if (isConnected) {
+    return;
+  }
+
+  try {
+    const db = await mongoose.connect(`${process.env.MONGODB_URI}/JobPortal`);
+
+    isConnected = db.connections[0].readyState === 1;
+    console.log("Connected to MongoDB:", db.connection.name);
+  } catch (error) {
+    console.error("MongoDB connection error:", error.message);
+  }
+};
 
 export default connectDB;

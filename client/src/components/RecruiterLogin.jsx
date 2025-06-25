@@ -2,10 +2,15 @@ import React, { useContext, useEffect } from 'react'
 import { useState } from 'react'
 import { assets } from '../assets/assets';
 import { AppContext } from '../context/AppContext';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 function RecruiterLogin() {
 
-    const {setShowRecruiterLogin} = useContext(AppContext);
+    const navigate = useNavigate();
+
+    const {setShowRecruiterLogin, backendUrl, setCompanyToken, setCompanyData} = useContext(AppContext);
 
     const [state, setState] = useState('Login');
     const [name, setName] = useState('');
@@ -20,7 +25,53 @@ function RecruiterLogin() {
         e.preventDefault();
 
         if(state === 'Sign Up' && !isTextDataSubmitted){
-            setIsTextdataSubmitted(true);
+            if (!isTextDataSubmitted) {
+                return setIsTextdataSubmitted(true);
+            }
+            if (!image) {
+                return toast.error('Please upload a company logo');
+            }
+        }
+
+        try {
+            
+            if (state === 'Login') {
+                const {data} = await axios.post(backendUrl + '/api/company/login', {email, password})
+                
+                if(data.success){
+                    setCompanyData(data.company);
+                    setCompanyToken(data.token);
+                    localStorage.setItem('companyToken', data.token);
+                    setShowRecruiterLogin(false);
+                    
+                    navigate('/dashboard');
+                }else{
+                    toast.error(data.message)
+                }
+            } else {
+                const formData = new FormData();
+                formData.append('name', name)
+                formData.append('password', password)
+                formData.append('email', email)
+                formData.append('image', image)
+                
+                const { data } = await axios.post(backendUrl + '/api/company/register', formData)
+
+                if(data.success){
+                    setCompanyData(data.company);
+                    setCompanyToken(data.token);
+                    localStorage.setItem('companyToken', data.token);
+                    setShowRecruiterLogin(false);
+                    
+                    navigate('/dashboard');
+                } else {
+                    toast.error(data.message)
+                }
+
+            }
+
+        } catch (error) {
+            toast.error(error.message)
         }
     }
 
@@ -74,7 +125,7 @@ function RecruiterLogin() {
                 <p className='text-sm text-blue-600 mt-4 cursor-pointer'>Forgot Password</p>
             }
 
-            <button type='submit' className='bg-blue-600 w-full text-white py-2 rounded-full mt-4'>
+            <button type='submit' className='bg-blue-600 w-full text-white py-2 rounded-full mt-4 cursor-pointer'>
                 {state === 'Login' ? 'Login' : isTextDataSubmitted ? 'Create Account' : 'Next'}
             </button>
             
