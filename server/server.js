@@ -16,7 +16,6 @@ await connectDB();
 app.use(cors())
 app.use(express.json())
 
-
 // Routes
 app.get('/', (req,res) => {
     res.send("API is Working");
@@ -24,8 +23,12 @@ app.get('/', (req,res) => {
 app.get("/debug-sentry", function mainHandler(req, res) {
   throw new Error("My first Sentry error!");
 });
+app.post('/webhooks', express.raw({ type: 'application/json' }), (req, res, next) => {
+  console.log("🔥 /webhooks route hit");
+  next(); // continue to actual handler
+}, clerkWebhooks);
 
-app.post('/webhooks', clerkWebhooks);
+
 
 // Port
 const PORT = process.env.PORT || 5000;
