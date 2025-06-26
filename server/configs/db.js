@@ -1,21 +1,12 @@
-// configs/db.js
-import mongoose from 'mongoose';
+import mongoose from "mongoose"
 
-let isConnected = false;
+// Function to connect to MongoDB database
+const connectDB = async() => {
 
-const connectDB = async () => {
-  if (isConnected) {
-    return;
-  }
+    mongoose.connection.on('connected', () => console.log('Database Connected'))
 
-  try {
-    const db = await mongoose.connect(`${process.env.MONGODB_URI}/job-portal`);
+    await mongoose.connect(`${process.env.MONGODB_URI}/JobSearch`)
 
-    isConnected = db.connections[0].readyState === 1;
-    console.log("Connected to MongoDB:", db.connection.name);
-  } catch (error) {
-    console.error("MongoDB connection error:", error.message);
-  }
-};
+}
 
 export default connectDB;
