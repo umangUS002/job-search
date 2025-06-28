@@ -1,5 +1,5 @@
 import React from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { AppContext } from '../context/AppContext'
 import { useState } from 'react'
 import { useContext, useEffect } from 'react'
@@ -12,13 +12,20 @@ import JobCard from '../components/JobCard'
 import Footer from '../components/Footer'
 import { toast } from 'react-toastify'
 import axios from 'axios'
+import { useAuth } from '@clerk/clerk-react'
 
 function ApplyJob() {
 
   const {id} = useParams();
-  const [JobData, setJobData] = useState(null);
 
-  const { jobs, backendUrl, userData, userApplications } = useContext(AppContext);
+  const { getToken } = useAuth();
+
+  const navigate = useNavigate();
+
+  const [JobData, setJobData] = useState(null);
+  const [isAlreadyApplied, setIsAlreadyApplied] = useState(false)
+
+  const { jobs, backendUrl, userData, userApplications, fetchUserApplications } = useContext(AppContext);
 
   const fetchJob = async() => {
 
@@ -38,24 +45,51 @@ function ApplyJob() {
   }
 
   const applyHandler = async() => {
+
     try {
       
       if(!userData){
         return toast.error('Login to Apply')
       }
 
-      if (!user.resume) {
+      if (!userData.resume) {
+        navigate('/applications')
         return toast.error('Upload Resume to Apply')
       }
 
+      const token = await getToken()
+
+      const {data} = await axios.post(backendUrl + '/api/users/apply',
+        {jobId: JobData._id},
+        {headers: {Authorization: `Bearer ${token}`}}
+      )
+
+      if(data.success) {
+        toast.success(data.message)
+        fetchUserApplications()
+      } else {
+        toast.error(data.message)
+      }
+
     } catch (error) {
-      
+      toast.error(error.message)
     }
+  }
+
+  const checkAlreadyApplied = () => {
+    const hasApplied = userApplications.some( item => item.jobId._id === JobData._id)
+    setIsAlreadyApplied(hasApplied)
   }
 
   useEffect(()=>{
       fetchJob();
   },[id, jobs])
+
+  useEffect(()=>{
+    if (userApplications.length > 0 && JobData) {
+      checkAlreadyApplied()
+    }
+  },[JobData, userApplications, id])
 
   return JobData ?  (
     <>
@@ -89,7 +123,7 @@ function ApplyJob() {
               </div>
             </div>
             <div className='flex flex-col justify-center text-end text-sm max-md:text-center'>
-              <button onClick={applyHandler} className='bg-blue-600 p-2.5 px-10 text-white rounded cursor-pointer'>Apply Now</button>
+              <button onClick={applyHandler} className='bg-blue-600 p-2.5 px-10 text-white rounded cursor-pointer'>{isAlreadyApplied ? 'Already Applied' : 'Apply Now'}</button>
               <p className='mt-1 text-gray-600'>Posted {moment(JobData.date).fromNow()}</p>
             </div>
           </div>
@@ -98,14 +132,19 @@ function ApplyJob() {
             <div className='w-full lg:w-2/3'>
               <h2 className='font-bold text-3xl mb-4'>Job Description</h2>
               <div className='rich-text' dangerouslySetInnerHTML={{__html:JobData.description}}></div>
-              <button onClick={applyHandler} className='bg-blue-600 p-2.5 px-10 text-white rounded mt-10 cursor-pointer'>Apply Now</button>
+              <button onClick={applyHandler} className='bg-blue-600 p-2.5 px-10 text-white rounded mt-10 cursor-pointer'>{isAlreadyApplied ? 'Already Applied' : 'Apply Now'}</button>
             </div>
 
             {/*...Right Section More Jobs*/}
             <div className='w-full lg:w-1/3 mt-8 lg:mt-0 lg:ml-8 space-y-5'>
               <h2>More Jobs from {JobData.companyId.name}</h2>
               {jobs.filter(job => job._id !== JobData._id && job.companyId._id === JobData.companyId._id).
-              filter(job => true).slice(0,4)
+              filter(job => {
+                // Set of applied jobs Ids
+                const appliedJobsIds = new Set(userApplications.map(app => app.jobId && app.JobId._id)) 
+                // Return true if the user has not applied for this job
+                return !appliedJobsIds.has(job._id)
+              }).slice(0,4)
               .map((job, index)=> <JobCard key={index} job={job} />)}
             </div>
 

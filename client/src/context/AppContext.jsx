@@ -9,8 +9,8 @@ export const AppContextProvider = (props) => {
 
     const backendUrl = import.meta.env.VITE_BACKEND_URL
 
-    const { user, isLoaded: isUserLoaded } =  useUser()
-    const { getToken, isLoaded: isAuthLoaded } = useAuth()
+    const { user } =  useUser()
+    const { getToken } = useAuth()
 
     const [searchFilter, setSearchFilter] = useState({
         title: "",
@@ -88,6 +88,23 @@ export const AppContextProvider = (props) => {
         }
     }
 
+    // Function to fetch user's applied applicatios data
+    const fetchUserApplications = async() => {
+        try {
+            const token = await getToken()
+            const {data} = await axios.get(backendUrl + '/api/users/applications',
+                {headers: {Authorization: `Bearer ${token}`}}
+            )
+            if(data.success) {
+                setUserApplications(data.applications)
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+        }
+    }
+
     useEffect(() => {
         const hasSearch = searchFilter.title !== "" || searchFilter.location !== "";
 
@@ -110,22 +127,18 @@ export const AppContextProvider = (props) => {
     }, [companyToken])
 
     useEffect(() => {
-    const fetchDataIfReady = async () => {
-        if (user && isUserLoaded && isAuthLoaded) {
-            const token = await getToken();
-            if (token) {
-                fetchUserData();
-            }
+        if (user) {
+            fetchUserData();
+            fetchUserApplications();
         }
-    };
-        fetchDataIfReady();
-    }, [user, isUserLoaded, isAuthLoaded]);
+    }, [user])
 
     const value = {
         searchFilter, setSearchFilter, isSearched, setIsSearched,
         jobs, setJobs, setShowRecruiterLogin, showRecruiterLogin,
         companyToken, setCompanyToken, companyData, setCompanyData,
-        backendUrl, userData, setUserData, userApplications, setUserApplications
+        backendUrl, userData, setUserData, userApplications, setUserApplications,
+        fetchUserData, fetchUserApplications
     }
     
     return (
